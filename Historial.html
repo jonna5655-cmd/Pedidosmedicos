@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial General - H.Z.G.A</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+        // PROTECCIÓN DE SESIÓN
+        if (localStorage.getItem('session-jefatura') !== "true") {
+            alert("Acceso denegado. Sector exclusivo de Jefatura.");
+            window.location.href = 'login.html';
+        }
+    </script>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            --accent-teal: #2dd4bf;
+            --glass-bg: rgba(255, 255, 255, 0.07);
+            --glass-border: rgba(255, 255, 255, 0.125);
+            --text-light: #f1f5f9;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-light);
+            margin: 0;
+            padding: 10px;
+        }
+
+        .container { max-width: 1000px; margin: 0 auto; }
+
+        .header-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .stat-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+        }
+        .stat-number { font-size: 2rem; font-weight: bold; color: var(--accent-teal); display: block; }
+        .stat-label { font-size: 0.75rem; opacity: 0.7; text-transform: uppercase; }
+
+        .filter-box {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .filter-inputs { display: flex; flex-direction: column; gap: 10px; }
+        .action-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        input {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 12px;
+            border-radius: 10px;
+            outline: none;
+            font-size: 1rem;
+        }
+
+        .table-container {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            overflow-x: auto;
+            backdrop-filter: blur(10px);
+        }
+
+        table { width: 100%; border-collapse: collapse; min-width: 700px; cursor: pointer; }
+        th { background: rgba(45, 212, 191, 0.2); padding: 15px; text-align: left; color: var(--accent-teal); }
+        td { padding: 15px; border-bottom: 1px solid var(--glass-border); font-size: 0.9rem; }
+        tr:hover { background: rgba(255,255,255,0.05); }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0; top: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            overflow-y: auto;
+        }
+
+        .modal-content { display: flex; flex-direction: column; align-items: center; width: 100%; }
+
+        .recetario-wrapper {
+            transform-origin: center top;
+            margin-bottom: 20px;
+            transition: transform 0.3s ease;
+        }
+
+        .recetario-digital {
+            width: 400px;
+            background: white;
+            color: #333;
+            padding: 35px;
+            border-radius: 2px;
+            font-family: 'Times New Roman', Times, serif;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+            box-sizing: border-box;
+        }
+
+        .recetario-header { text-align: center; border-bottom: 2px solid #333; margin-bottom: 25px; padding-bottom: 10px; }
+        .recetario-header h2 { margin: 0; font-size: 1.5rem; font-style: italic; }
+        .recetario-header p { margin: 2px 0; font-size: 0.7rem; font-weight: bold; letter-spacing: 1px; }
+
+        .recetario-body { min-height: 220px; line-height: 1.4; }
+        .rp-label { font-size: 1.8rem; font-style: italic; font-weight: bold; margin-bottom: 15px; display: block; }
+
+        .recetario-footer { margin-top: 30px; position: relative; height: 150px; }
+        
+        .sello-medico {
+            position: absolute;
+            right: 0;
+            width: 190px;
+            border: 2px solid #1a365d;
+            padding: 8px;
+            border-radius: 5px;
+            color: #1a365d;
+            transform: rotate(-2deg);
+            font-family: 'Courier New', monospace;
+            text-align: center;
+        }
+
+        .firma-digital { width: 100px; height: auto; display: block; margin: 0 auto 5px; mix-blend-mode: multiply; }
+
+        .hosp-info {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
+            font-size: 0.65rem;
+            text-align: center;
+            color: #666;
+            font-family: Arial, sans-serif;
+        }
+
+        .btn { padding: 12px 20px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-teal { background: var(--accent-teal); color: #0f172a; }
+        .btn-danger { background: #f87171; color: white; }
+        .btn-excel { background: #22c55e; color: white; }
+
+        @media (min-width: 768px) {
+            body { padding: 25px; }
+            .filter-box { flex-direction: row; align-items: flex-end; justify-content: space-between; }
+            .filter-inputs { flex-direction: row; flex: 1; }
+            input { flex: 1; }
+            .stat-number { font-size: 2.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header-panel">
+            <div>
+                <h1 style="margin:0; font-size: 1.3rem; color: var(--accent-teal);">REGISTRO JEFATURA</h1>
+                <p style="margin:0; opacity: 0.6; font-size: 0.75rem;">H.Z.G.A Héroes de Malvinas</p>
+            </div>
+            <button class="btn btn-danger" onclick="logout()">Cerrar</button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-number" id="count-estudios">0</span>
+                <span class="stat-label">Estudios Rx/Tac</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="count-traslados">0</span>
+                <span class="stat-label">Traslados</span>
+            </div>
+        </div>
+
+        <div class="filter-box">
+            <div class="filter-inputs">
+                <input type="text" id="search-input" placeholder="Buscar paciente o médico..." onkeyup="filtrar()">
+                <input type="date" id="date-input" onchange="filtrar()">
+            </div>
+            <div class="action-buttons">
+                <button class="btn btn-excel" onclick="exportarExcel()">Excel</button>
+                <button class="btn" style="background:none; border: 1px solid #f87171; color:#f87171;" onclick="borrarHistorial()">Limpiar Todo</button>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha/Hora</th>
+                        <th>Paciente / DNI</th>
+                        <th>Estudio / Traslado</th>
+                        <th>Médico Solicitante</th>
+                    </tr>
+                </thead>
+                <tbody id="historial-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="modal-recetario" class="modal">
+        <div class="modal-content">
+            <div id="recetario-wrapper" class="recetario-wrapper">
+                <div id="recetario-captura" class="recetario-digital">
+                    <div class="recetario-header">
+                        <h2>H.Z.G.A Héroes de Malvinas</h2>
+                        <p>SISTEMA DE GESTIÓN HOSPITALARIA DIGITAL</p>
+                    </div>
+
+                    <div class="recetario-body">
+                        <span class="rp-label">Rp./</span>
+                        <p><strong>Paciente:</strong> <span id="r-paciente"></span></p>
+                        <p><strong>DNI:</strong> <span id="r-dni"></span></p>
+                        <div style="margin: 20px 0; font-size: 1.1rem; border-left: 3px solid #333; padding-left: 12px; min-height: 80px;">
+                            <span id="r-pedido"></span>
+                        </div>
+                        <p style="font-size: 0.75rem; margin-top: 30px; opacity: 0.8;">
+                            Fecha: <span id="r-fecha"></span> | Hora: <span id="r-hora"></span> hs
+                        </p>
+                    </div>
+
+                    <div class="recetario-footer">
+                        <div class="sello-medico">
+                            <img id="r-firma" src="" class="firma-digital">
+                            <div id="r-medico" style="font-weight: bold; border-top: 1px solid #1a365d; margin-top: 5px; padding-top: 3px; font-size: 0.8rem;"></div>
+                            <div style="font-size: 0.65rem;">MATRÍCULA: <span id="r-mat"></span></div>
+                        </div>
+
+                        <div class="hosp-info">
+                            DIRECCIÓN: Ricardo Balbín 1910 - LOCALIDAD: Merlo<br>
+                            Provincia: Buenos Aires - Tel.: 0220-4488-1234
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-teal" onclick="descargarRecetario()">⬇ DESCARGAR JPG</button>
+                <button class="btn btn-danger" onclick="cerrarModal()">CERRAR</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function cargarDatos() {
+            const historial = JSON.parse(localStorage.getItem('archivo-historial')) || [];
+            const body = document.getElementById('historial-body');
+            body.innerHTML = "";
+            
+            let countRxTac = 0;
+            let countTraslados = 0;
+
+            historial.reverse().forEach((item) => {
+                const fechaItem = item.fecha || new Date().toLocaleDateString();
+                const pedidoTexto = item.estudio || item.pedido || "Traslado General";
+                const medicoTexto = item.medico || "Profesional";
+                const horaTexto = item.hora || "--:--";
+
+                // Lógica de conteo por tipo
+                const esEstudio = pedidoTexto.toUpperCase().includes("RX") || pedidoTexto.toUpperCase().includes("TAC");
+                if (esEstudio) {
+                    countRxTac++;
+                } else {
+                    countTraslados++;
+                }
+
+                const tr = document.createElement('tr');
+                tr.onclick = () => abrirRecetario(item);
+                tr.innerHTML = `
+                    <td>${fechaItem}<br><small>${horaTexto} hs</small></td>
+                    <td><strong>${item.paciente}</strong><br><small>DNI: ${item.dni}</small></td>
+                    <td><span style="color:var(--accent-teal)">${pedidoTexto}</span></td>
+                    <td>${medicoTexto}</td>
+                `;
+                body.appendChild(tr);
+            });
+
+            document.getElementById('count-estudios').innerText = countRxTac;
+            document.getElementById('count-traslados').innerText = countTraslados;
+        }
+
+        function abrirRecetario(item) {
+            document.getElementById('r-paciente').innerText = item.paciente || "---";
+            document.getElementById('r-dni').innerText = item.dni || "---";
+            document.getElementById('r-pedido').innerText = item.estudio || item.pedido || "Traslado General";
+            document.getElementById('r-fecha').innerText = item.fecha || new Date().toLocaleDateString();
+            document.getElementById('r-hora').innerText = item.hora || "--:--";
+            
+            document.getElementById('r-medico').innerText = "Dr/a. " + (item.medico || "---");
+            document.getElementById('r-mat').innerText = item.matricula || item.firma_mat || "---";
+            
+            const imgFirma = document.getElementById('r-firma');
+            if(item.firma) {
+                imgFirma.src = item.firma;
+                imgFirma.style.display = "block";
+            } else {
+                imgFirma.style.display = "none";
+            }
+
+            document.getElementById('modal-recetario').style.display = 'flex';
+            ajustarEscalaRecetario();
+        }
+
+        function ajustarEscalaRecetario() {
+            const wrapper = document.getElementById('recetario-wrapper');
+            const anchoPantalla = window.innerWidth;
+            if (anchoPantalla < 450) {
+                const escala = (anchoPantalla - 30) / 400;
+                wrapper.style.transform = `scale(${escala})`;
+            } else { wrapper.style.transform = `scale(1)`; }
+        }
+
+        function cerrarModal() { document.getElementById('modal-recetario').style.display = 'none'; }
+
+        async function descargarRecetario() {
+            const captura = document.getElementById('recetario-captura');
+            const canvas = await html2canvas(captura, { scale: 2, useCORS: true });
+            const link = document.createElement('a');
+            link.download = `Receta_${document.getElementById('r-paciente').innerText}.jpg`;
+            link.href = canvas.toDataURL("image/jpeg", 0.9);
+            link.click();
+        }
+
+        function filtrar() {
+            const txt = document.getElementById('search-input').value.toLowerCase();
+            const fechaInput = document.getElementById('date-input').value; // YYYY-MM-DD
+            const filas = document.querySelectorAll("#historial-body tr");
+
+            filas.forEach(f => {
+                const contenido = f.innerText.toLowerCase();
+                const matchTxt = contenido.includes(txt);
+                
+                let matchFecha = true;
+                if(fechaInput) {
+                    const partes = fechaInput.split("-");
+                    const fechaFormateada = `${partes[2]}/${partes[1]}/${partes[0]}`; // DD/MM/YYYY
+                    matchFecha = f.cells[0].innerText.includes(fechaFormateada);
+                }
+                
+                f.style.display = (matchTxt && matchFecha) ? "" : "none";
+            });
+        }
+
+        function borrarHistorial() {
+            if(confirm("Esta acción eliminará permanentemente todos los registros.")) {
+                if(prompt("Escriba 'BORRAR' para confirmar:") === "BORRAR") {
+                    localStorage.removeItem('archivo-historial');
+                    cargarDatos();
+                }
+            }
+        }
+
+        function exportarExcel() {
+            let csv = "Fecha,Hora,Paciente,DNI,Estudio/Pedido,Medico\n";
+            const historial = JSON.parse(localStorage.getItem('archivo-historial')) || [];
+            historial.forEach(p => {
+                csv += `${p.fecha},${p.hora},${p.paciente},${p.dni},${p.estudio || p.pedido},${p.medico}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "Historial_HZGA.csv";
+            a.click();
+        }
+
+        function logout() {
+            localStorage.removeItem('session-jefatura');
+            window.location.href = 'login.html';
+        }
+
+        window.onload = cargarDatos;
+        window.addEventListener('resize', ajustarEscalaRecetario);
+    </script>
+</body>
+</html>
