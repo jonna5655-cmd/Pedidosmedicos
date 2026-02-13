@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Panel Médico Digital - H.Z.G.A</title>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #134e4a 100%);
+            --glass-bg: rgba(255, 255, 255, 0.07);
+            --glass-border: rgba(255, 255, 255, 0.125);
+            --accent-teal: #2dd4bf;
+            --text-light: #f1f5f9;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-light);
+            margin: 0; padding: 15px;
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+        }
+
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px; padding: 20px;
+            width: 100%; max-width: 500px; margin-bottom: 15px; box-sizing: border-box;
+        }
+
+        /* --- HEADER --- */
+        .doctor-header { display: flex; justify-content: space-between; align-items: center; }
+        .nav-buttons { display: flex; gap: 8px; }
+        .nav-buttons button {
+            background: rgba(255, 255, 255, 0.1); border: 1px solid var(--glass-border);
+            color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.75rem;
+        }
+
+        /* --- ESTILOS DE LA CREDENCIAL 3D (Perfil) --- */
+        .card-container { perspective: 1200px; width: 320px; height: 480px; margin: 20px auto; cursor: pointer; }
+        .card-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; }
+        .is-flipped { transform: rotateY(180deg); }
+        .card-front, .card-back {
+            position: absolute; width: 100%; height: 100%; backface-visibility: hidden;
+            border-radius: 24px; border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(25px);
+            display: flex; flex-direction: column; padding: 20px; box-sizing: border-box;
+        }
+        .card-back { transform: rotateY(180deg); justify-content: center; }
+        .profile-img { width: 100px; height: 100px; border-radius: 50%; border: 3px solid var(--accent-teal); margin: 0 auto 15px; object-fit: cover; }
+        .info-group { text-align: left; margin-bottom: 10px; }
+        .info-label { font-size: 0.6rem; text-transform: uppercase; color: var(--accent-teal); }
+        .info-value { font-size: 0.9rem; font-weight: 500; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .signature-img { width: 140px; filter: brightness(0) invert(1); margin-bottom: 10px; }
+        .stamp-box { border: 2px solid rgba(45, 212, 191, 0.5); padding: 10px; border-radius: 12px; transform: rotate(-3deg); background: rgba(45, 212, 191, 0.03); }
+
+        /* --- FORMULARIO --- */
+        h3 { margin: 0 0 15px 0; color: var(--accent-teal); font-size: 1.1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; }
+        .input-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 4px; font-size: 0.85rem; opacity: 0.9; }
+        input, select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0, 0, 0, 0.3); color: white; box-sizing: border-box; outline: none; }
+        .selected-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+        .tag-item { background: var(--accent-teal); color: #0f172a; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; display: flex; align-items: center; gap: 5px; }
+        .tag-item span { cursor: pointer; color: #b91c1c; }
+        .btn-toggle-group { display: flex; gap: 8px; }
+        .btn-toggle { flex: 1; padding: 8px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.05); color: white; border-radius: 8px; cursor: pointer; font-size: 0.8rem; }
+        .btn-toggle.active { background: var(--accent-teal); color: #0f172a; font-weight: bold; }
+        .btn-submit { width: 100%; padding: 14px; background: var(--accent-teal); border: none; border-radius: 12px; color: #0f172a; font-weight: bold; cursor: pointer; margin-top: 15px; }
+
+        /* --- MONITOR --- */
+        .status-item { background: rgba(255,255,255,0.05); padding: 12px; border-radius: 10px; margin-bottom: 8px; border-left: 4px solid #fbbf24; }
+        .status-item.en-curso { border-left-color: #2dd4bf; background: rgba(45, 212, 191, 0.15); }
+        .tag { font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .tag-pendiente { background: #fbbf24; color: #000; }
+        .tag-curso { background: #2dd4bf; color: #000; }
+        .tag-finalizado { background: rgba(255,255,255,0.2); color: #fff; }
+
+        .hidden { display: none !important; }
+        #toast { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); background: #2dd4bf; color: #0f172a; padding: 12px 25px; border-radius: 50px; font-weight: bold; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 9999; display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="toast"></div>
+
+    <div class="glass-card doctor-header">
+        <div>
+            <strong id="display-medico">Cargando...</strong>
+            <span id="display-matricula" style="display:block; font-size: 0.75rem; opacity: 0.7;">M.P: --</span>
+        </div>
+        <div class="nav-buttons">
+            <button id="nav-btn" onclick="toggleView('profile')">Mi Perfil</button>
+            <button id="pedidos-btn" onclick="toggleView('orders')">Pedidos</button>
+            <button onclick="location.href='login.html'" style="color: #fda4af;">Salir</button>
+        </div>
+    </div>
+
+    <div id="view-main" style="width: 100%; max-width: 500px;">
+        <form id="orderForm" class="glass-card">
+            <h3>Nueva Orden</h3>
+            <div class="input-group">
+                <label>Paciente / DNI</label>
+                <div style="display: flex; gap: 5px;">
+                    <input type="text" id="nombre-pac" placeholder="Nombre" style="flex: 2;">
+                    <input type="number" id="dni-pac" placeholder="DNI" style="flex: 1;">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Tipo de Solicitud</label>
+                <select id="orderType" onchange="toggleEstudios()">
+                    <option value="Traslado">Solo Traslado</option>
+                    <option value="RX">Estudio RX</option>
+                    <option value="TAC">Estudio TAC</option>
+                    <option value="RX+TAC">Ambos (RX + TAC)</option>
+                </select>
+            </div>
+
+            <div id="sec-traslado" class="input-group">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <div><label>Desde</label><select id="desde"></select></div>
+                    <div><label>Hacia</label><select id="hacia"></select></div>
+                </div>
+            </div>
+
+            <div id="sec-rx" class="hidden">
+                <label>Añadir RX:</label>
+                <select id="select-rx" onchange="addTag('rx')">
+                    <option value="">Seleccione...</option>
+                    <option value="Torax">Torax</option>
+                    <option value="Mano">Mano</option>
+                    <option value="Pelvis">Pelvis</option>
+                    <option value="Craneo">Cráneo</option>
+                </select>
+                <div id="tags-rx" class="selected-tags"></div>
+            </div>
+
+            <div id="sec-tac" class="hidden" style="margin-top:10px">
+                <label>Añadir TAC:</label>
+                <select id="select-tac" onchange="addTag('tac')">
+                    <option value="">Seleccione...</option>
+                    <option value="Cerebro">Cerebro</option>
+                    <option value="Abdomen">Abdomen</option>
+                    <option value="Torax">Torax</option>
+                </select>
+                <div id="tags-tac" class="selected-tags"></div>
+            </div>
+
+            <h3 style="margin-top:15px; font-size: 0.8rem;">Transporte y O2</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="btn-toggle-group">
+                    <button type="button" class="btn-toggle" onclick="setToggle(this, 'transport')">Silla</button>
+                    <button type="button" class="btn-toggle" onclick="setToggle(this, 'transport')">Camilla</button>
+                </div>
+                <div class="btn-toggle-group">
+                    <button type="button" class="btn-toggle" onclick="setToggle(this, 'oxigeno')">O2 Si</button>
+                    <button type="button" class="btn-toggle" onclick="setToggle(this, 'oxigeno')">O2 No</button>
+                </div>
+            </div>
+
+            <button type="button" class="btn-submit" onclick="enviarPedido()">ENVIAR PEDIDO</button>
+        </form>
+
+        <div class="glass-card">
+            <h4 style="margin:0 0 10px 0; font-size: 0.9rem;">🚚 Traslados en Curso</h4>
+            <div id="listaEnCurso"></div>
+        </div>
+    </div>
+
+    <div id="view-orders" class="hidden" style="width: 100%; max-width: 500px;">
+        <div class="glass-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0; border:none;">Historial del Día</h3>
+                <button onclick="descargarExcel()" style="background:var(--accent-teal); border:none; padding:5px 10px; border-radius:5px; font-size:0.7rem; font-weight:bold; cursor:pointer;">Excel</button>
+            </div>
+            <div id="listaTodosLosPedidos"></div>
+        </div>
+    </div>
+
+    <div id="view-profile" class="hidden">
+        <div class="card-container" onclick="flipCard()">
+            <div class="card-inner" id="card-inner">
+                <div class="card-front">
+                    <div style="border-bottom: 1px solid var(--accent-teal); padding-bottom: 10px; margin-bottom: 15px;">
+                        <h1 style="font-size: 1.1rem; margin: 0; color: var(--accent-teal);">H.Z.G.A Héroes de Malvinas</h1>
+                        <p style="font-size: 0.7rem; margin: 3px 0 0; opacity: 0.8;">Credencial Profesional Digital</p>
+                    </div>
+                    <img id="p-foto-perfil" src="https://via.placeholder.com/150?text=SIN+FOTO" class="profile-img">
+                    <div class="info-group">
+                        <div class="info-label">Profesional</div>
+                        <div id="p-nombre" class="info-value">---</div>
+                    </div>
+                    <div class="info-group">
+                        <div class="info-label">Especialidad</div>
+                        <div id="p-especialidad" class="info-value">---</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="info-group"><div class="info-label">DNI</div><div id="p-dni" class="info-value">---</div></div>
+                        <div class="info-group"><div class="info-label">Matrícula</div><div id="p-mat" class="info-value">---</div></div>
+                    </div>
+                    <div class="info-group">
+                        <div class="info-label">Servicio Asignado</div>
+                        <div id="p-servicio" class="info-value">---</div>
+                    </div>
+                    <p style="margin-top: auto; font-size: 0.55rem; opacity: 0.4;">ID DIGITAL VERIFICADA - 2026</p>
+                </div>
+                <div class="card-back">
+                    <div style="border-bottom: 1px solid var(--accent-teal); padding-bottom: 10px; margin-bottom: 15px;">
+                        <h1 style="font-size: 1.1rem; margin: 0; color: var(--accent-teal);">Sello de Validación</h1>
+                    </div>
+                    <div class="stamp-box">
+                        <img id="p-firma" src="" class="signature-img" alt="Firma no registrada">
+                        <div style="font-family: 'Courier New', monospace; color: var(--accent-teal); font-size: 0.8rem; font-weight: bold;">
+                            <div>Dr/a: <span id="stamp-nombre">---</span></div>
+                            <div>Especialidad: <span id="stamp-especialidad">---</span></div>
+                            <div>M.P: <span id="stamp-mat">---</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let seleccionCamillero = { transport: '', oxigeno: '' };
+        let estudiosRX = [];
+        let estudiosTAC = [];
+        let misPedidosLocales = [];
+
+        window.onload = function() {
+            limpiarPedidos24hs();
+            cargarDatosMedico();
+            
+            const salas = ["Guardia", "Piso 1", "Piso 2", "UTI", "RX", "TAC", "Shock Room"];
+            const s1 = document.getElementById('desde'); const s2 = document.getElementById('hacia');
+            salas.forEach(s => { s1.add(new Option(s, s)); s2.add(new Option(s, s)); });
+            
+            actualizarListas();
+            setInterval(actualizarListas, 2000);
+        };
+
+      function cargarDatosMedico() {
+    const nombre = localStorage.getItem('reg-medico-nombre');
+    const mat = localStorage.getItem('reg-medico-mat');
+    const dni = localStorage.getItem('reg-medico-dni');
+    const esp = localStorage.getItem('reg-medico-esp');
+    const serv = localStorage.getItem('reg-medico-serv') || "Guardia";
+    const firma = localStorage.getItem('user-firma');
+    const foto = localStorage.getItem('reg-medico-foto'); // Recupera la foto comprimida
+
+    document.getElementById('display-medico').innerText = "Dr/a. " + nombre;
+    document.getElementById('display-matricula').innerText = "M.P: " + mat;
+    document.getElementById('p-nombre').innerText = "Dr/a. " + nombre;
+    document.getElementById('p-especialidad').innerText = esp;
+    document.getElementById('p-dni').innerText = dni;
+    document.getElementById('p-mat').innerText = mat;
+    document.getElementById('p-servicio').innerText = serv;
+    document.getElementById('stamp-nombre').innerText = nombre;
+    document.getElementById('stamp-especialidad').innerText = esp;
+    document.getElementById('stamp-mat').innerText = mat;
+
+    // Carga la firma y la foto solo si existen
+    if(firma) document.getElementById('p-firma').src = firma;
+    if(foto) document.getElementById('p-foto-perfil').src = foto;
+}
+
+
+        function limpiarPedidos24hs() {
+            const hoy = new Date().toLocaleDateString();
+            let cola = JSON.parse(localStorage.getItem('cola-pedidos')) || [];
+            const filtrada = cola.filter(p => p.fecha === hoy);
+            localStorage.setItem('cola-pedidos', JSON.stringify(filtrada));
+        }
+
+        function toggleView(target) {
+            const views = ['view-main', 'view-profile', 'view-orders'];
+            views.forEach(v => document.getElementById(v).classList.add('hidden'));
+
+            if (target === 'profile') {
+                const isHidden = document.getElementById('view-profile').classList.contains('hidden');
+                if (document.getElementById('nav-btn').innerText === "Ver Panel") {
+                    document.getElementById('view-main').classList.remove('hidden');
+                    document.getElementById('nav-btn').innerText = "Mi Perfil";
+                } else {
+                    document.getElementById('view-profile').classList.remove('hidden');
+                    document.getElementById('nav-btn').innerText = "Ver Panel";
+                }
+            } else if (target === 'orders') {
+                document.getElementById('view-orders').classList.remove('hidden');
+                document.getElementById('nav-btn').innerText = "Ver Panel";
+            }
+        }
+
+        function flipCard() { document.getElementById('card-inner').classList.toggle('is-flipped'); }
+
+        function addTag(tipo) {
+            const select = document.getElementById(`select-${tipo}`);
+            if (select.value) {
+                if (tipo === 'rx') estudiosRX.push(select.value);
+                else estudiosTAC.push(select.value);
+                renderTags(); select.value = "";
+            }
+        }
+
+        function renderTags() {
+            document.getElementById('tags-rx').innerHTML = estudiosRX.map(i => `<div class="tag-item">${i} <span onclick="estudiosRX.splice(estudiosRX.indexOf('${i}'),1);renderTags()">×</span></div>`).join('');
+            document.getElementById('tags-tac').innerHTML = estudiosTAC.map(i => `<div class="tag-item">${i} <span onclick="estudiosTAC.splice(estudiosTAC.indexOf('${i}'),1);renderTags()">×</span></div>`).join('');
+        }
+
+        function toggleEstudios() {
+            const val = document.getElementById('orderType').value;
+            document.getElementById('sec-rx').classList.toggle('hidden', !val.includes('RX'));
+            document.getElementById('sec-tac').classList.toggle('hidden', !val.includes('TAC'));
+        }
+
+        function setToggle(btn, tipo) {
+            btn.parentElement.querySelectorAll('.btn-toggle').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            seleccionCamillero[tipo] = btn.innerText;
+        }
+
+        function enviarPedido() {
+    const nom = document.getElementById('nombre-pac').value;
+    const dni = document.getElementById('dni-pac').value;
+    if(!nom || !dni || !seleccionCamillero.transport) return alert("Faltan datos.");
+
+    // --- NUEVA LÓGICA DE TURNO AUTOMÁTICO ---
+    const horaActual = new Date().getHours();
+    let turnoAuto = "";
+    if (horaActual >= 6 && horaActual < 14) turnoAuto = "Mañana";
+    else if (horaActual >= 14 && horaActual < 21) turnoAuto = "Tarde";
+    else turnoAuto = "Noche";
+
+    const nuevo = {
+        id: Date.now(),
+        paciente: nom.toUpperCase(),
+        dni: dni,
+        estudio: (estudiosRX.length > 0 ? "RX: "+estudiosRX.join(", ") : "") + (estudiosTAC.length > 0 ? " TAC: "+estudiosTAC.join(", ") : "") || "Traslado General",
+        desde: document.getElementById('desde').value,
+        hacia: document.getElementById('hacia').value,
+        transporte: seleccionCamillero.transport,
+        o2: seleccionCamillero.oxigeno || "O2 No",
+        hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+        fecha: new Date().toLocaleDateString(),
+        estado: 'pendiente',
+        turno: turnoAuto, // <--- AHORA EL MÉDICO ENVÍA EL TURNO
+        medico: localStorage.getItem('reg-medico-nombre'),
+        matricula: localStorage.getItem('reg-medico-mat'),
+
+    };
+
+    let cola = JSON.parse(localStorage.getItem('cola-pedidos')) || [];
+    cola.push(nuevo);
+    localStorage.setItem('cola-pedidos', JSON.stringify(cola));
+    document.getElementById('orderForm').reset();
+    estudiosRX = []; estudiosTAC = []; renderTags();
+    alert("Pedido enviado al turno " + turnoAuto);
+    actualizarListas();
+}
+
+
+        function actualizarListas() {
+            const colaTotal = JSON.parse(localStorage.getItem('cola-pedidos')) || [];
+            const medicoActual = localStorage.getItem('reg-medico-nombre');
+            const misPedidos = colaTotal.filter(p => p.medico === medicoActual);
+
+            // Toast de finalización
+            misPedidosLocales.forEach(pOld => {
+                const found = misPedidos.find(pNew => pNew.id === pOld.id);
+                if (pOld.estado !== 'finalizado' && found && found.estado === 'finalizado') {
+                    const t = document.getElementById('toast');
+                    t.innerText = `✅ Traslado de ${pOld.paciente} completado`;
+                    t.style.display = 'block';
+                    setTimeout(() => t.style.display = 'none', 4000);
+                }
+            });
+            misPedidosLocales = JSON.parse(JSON.stringify(misPedidos));
+
+            // Monitor Principal (Solo EN CURSO)
+            const monitor = document.getElementById('listaEnCurso');
+            const enCurso = misPedidos.filter(p => p.estado === 'en-curso');
+            monitor.innerHTML = enCurso.length === 0 ? "<p style='font-size:0.75rem; opacity:0.5; text-align:center;'>No hay traslados moviéndose.</p>" : "";
+            enCurso.forEach(p => {
+                monitor.innerHTML += `<div class="status-item en-curso"><strong>${p.paciente}</strong> <span class="tag tag-curso">EN CURSO</span><br><small>${p.desde} ➔ ${p.hacia}</small></div>`;
+            });
+
+            // Vista Historial (TODOS)
+            const historial = document.getElementById('listaTodosLosPedidos');
+            historial.innerHTML = misPedidos.length === 0 ? "<p style='text-align:center; opacity:0.5;'>Sin actividad hoy.</p>" : "";
+            misPedidos.reverse().forEach(p => {
+                const clase = p.estado === 'en-curso' ? 'tag-curso' : p.estado === 'pendiente' ? 'tag-pendiente' : 'tag-finalizado';
+                historial.innerHTML += `
+                    <div style="padding:10px; border-bottom:1px solid rgba(255,255,255,0.1);">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <strong>${p.paciente}</strong>
+                            <span class="tag ${clase}">${p.estado.toUpperCase()}</span>
+                        </div>
+                        <div style="font-size:0.7rem; opacity:0.7; margin-top:4px;">${p.hora}hs - ${p.desde} a ${p.hacia}</div>
+                    </div>`;
+            });
+        }
+
+        function descargarExcel() {
+            const cola = JSON.parse(localStorage.getItem('cola-pedidos')) || [];
+            const misPedidos = cola.filter(p => p.medico === localStorage.getItem('reg-medico-nombre'));
+            if(misPedidos.length === 0) return alert("No hay pedidos.");
+            let csv = "Fecha,Hora,Paciente,DNI,Estudio,Estado\n";
+            misPedidos.forEach(p => csv += `${p.fecha},${p.hora},${p.paciente},${p.dni},${p.estudio},${p.estado}\n`);
+            const link = document.createElement("a");
+            link.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv);
+            link.download = `Historial_${localStorage.getItem('reg-medico-nombre')}.csv`;
+            link.click();
+        }
+    </script>
+</body>
+</html>
