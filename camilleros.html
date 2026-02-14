@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Panel de Camilleros - H.Z.G.A</title>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #134e4a 100%);
+            --accent-teal: #2dd4bf;
+            --accent-orange: #fb923c;
+            --glass-bg: rgba(255, 255, 255, 0.07);
+            --glass-border: rgba(255, 255, 255, 0.125);
+            --text-light: #f1f5f9;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-light);
+            margin: 0; padding: 15px;
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        .container { width: 100%; max-width: 500px; }
+
+        .user-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px; padding: 15px;
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;
+        }
+
+        .user-data h3 { margin: 0; font-size: 1rem; color: var(--accent-teal); }
+        .user-data p { margin: 0; font-size: 0.8rem; opacity: 0.7; }
+
+        .done-today-box {
+            background: rgba(45, 212, 191, 0.1);
+            border: 1px solid var(--accent-teal);
+            border-radius: 15px; padding: 10px;
+            margin-bottom: 15px; text-align: center;
+        }
+
+        .orders-container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px; padding: 15px; min-height: 200px;
+        }
+
+        .order-card {
+            background: #fff; color: #334155;
+            border-radius: 12px; padding: 15px;
+            margin-bottom: 15px; position: relative;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border-left: 8px solid var(--accent-teal);
+        }
+        .order-card.en-curso { border-left-color: var(--accent-orange); }
+        .order-card.bloqueado { opacity: 0.6; pointer-events: none; filter: grayscale(1); }
+
+        .order-card h4 { margin: 0; color: #0f172a; font-size: 0.95rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
+        .patient-row { margin: 8px 0; font-size: 0.85rem; }
+        .estudio-box { background: #f1f5f9; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 0.8rem; margin: 5px 0; color: #1e293b; }
+        
+        .badge { font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; background: #e2e8f0; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
+
+        .btn-action {
+            width: 100%; padding: 12px; border-radius: 8px;
+            border: none; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 0.85rem;
+        }
+        .btn-start { background: var(--accent-teal); color: #0f172a; }
+        .btn-finish { background: var(--accent-orange); color: white; }
+
+        .empty-msg { text-align: center; opacity: 0.6; padding: 40px 0; font-style: italic; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="user-panel">
+            <div class="user-data">
+                <h3 id="display-name">Cargando...</h3>
+                <p id="display-shift">Cargando...</p>
+            </div>
+            <button style="background:none; border:none; color:#f87171; cursor:pointer; font-weight:bold;" onclick="location.href='login.html'">Salir</button>
+        </div>
+
+        <div class="done-today-box">
+            <span style="font-size: 0.75rem; opacity: 0.8;">Mis servicios finalizados hoy</span>
+            <div id="count-done" style="font-size: 1.5rem; font-weight: bold; color: var(--accent-teal);">0</div>
+        </div>
+
+        <div class="orders-container">
+            <h3 style="font-size: 0.9rem; margin-top: 0; opacity: 0.9; color: var(--accent-teal);">📋 Pedidos de Mi Turno</h3>
+            <div id="orders-list">
+                <div class="empty-msg">Sincronizando pedidos...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const camilleroNombre = localStorage.getItem('reg-cami-nombre') || "Camillero";
+        const camilleroTurnoCompleto = localStorage.getItem('reg-cami-turno') || "";
+        const miTurnoKey = camilleroTurnoCompleto.split(" ")[0].toLowerCase();
+        
+        document.getElementById('display-name').innerText = camilleroNombre;
+        document.getElementById('display-shift').innerText = "Turno: " + camilleroTurnoCompleto;
+
+        function renderPedidos() {
+            const listado = document.getElementById('orders-list');
+            const cola = JSON.parse(localStorage.getItem('cola-pedidos')) || [];
+            
+            const pedidosMiTurno = cola.filter(p => {
+                if (p.estado === 'finalizado') return false;
+                if (!p.turno) return true; 
+                const turnoPedidoKey = p.turno.split(" ")[0].toLowerCase();
+                return turnoPedidoKey === miTurnoKey;
+            });
+
+            if (pedidosMiTurno.length === 0) {
+                listado.innerHTML = `<div class="empty-msg">No hay pedidos pendientes para el turno ${camilleroTurnoCompleto}.</div>`;
+                actualizarContador();
+                return;
+            }
+
+            listado.innerHTML = "";
+            pedidosMiTurno.reverse().forEach(p => {
+                const esMio = p.camilleroAsignado === camilleroNombre;
+                const ocupadoPorOtro = p.estado === 'en-curso' && !esMio;
+
+                const card = document.createElement('div');
+                card.className = `order-card ${p.estado === 'en-curso' ? 'en-curso' : ''} ${ocupadoPorOtro ? 'bloqueado' : ''}`;
+                
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:start;">
+                        <h4>${p.paciente}</h4>
+                        <span class="badge ${p.o2 && p.o2.includes('Si') ? 'badge-red' : ''}">${p.o2 && p.o2.includes('Si') ? 'OXÍGENO' : 'SIN O2'}</span>
+                    </div>
+                    <div class="patient-row"><strong>DNI:</strong> ${p.dni} | <strong>${p.transporte}</strong></div>
+                    <div class="estudio-box">${p.estudio || "Traslado General"}</div>
+                    <div style="font-size:0.7rem; opacity:0.8; line-height:1.3;">
+                        <strong>Desde:</strong> ${p.desde} ➔ <strong>Hacia:</strong> ${p.hacia} <br>
+                      <span style="color:#64748b;">Solicitó: Dr/a ${p.medico} (M.P: ${p.matricula || 'N/A'}) (${p.hora}hs)</span>
+ 
+                    </div>
+                    
+                    ${ocupadoPorOtro ? 
+                        `<div style="color:#b91c1c; font-size:0.7rem; margin-top:10px; font-weight:bold; text-align:center;">TOMADO POR: ${p.camilleroAsignado}</div>` : 
+                        `<button class="btn-action ${p.estado === 'pendiente' ? 'btn-start' : 'btn-finish'}" 
+                            onclick="gestionar(${p.id}, '${p.estado}')">
+                            ${p.estado === 'pendiente' ? 'ACEPTAR' : 'FINALIZAR'}
+                        </button>`
+                    }
+                `;
+                listado.appendChild(card);
+            });
+            actualizarContador();
+        }
+
+        function gestionar(id, estadoActual) {
+    let cola = JSON.parse(localStorage.getItem('cola-pedidos')) || [];
+    let index = cola.findIndex(p => p.id === id);
+    if (index === -1) return;
+
+    if (estadoActual === 'pendiente') {
+        // --- ESTO ACTIVA EL MONITOR DE IMÁGENES ---
+        cola[index].estado = 'en-curso';
+        cola[index].camilleroAsignado = camilleroNombre;
+        
+        localStorage.setItem('cola-pedidos', JSON.stringify(cola));
+        localStorage.setItem('ultimo-cambio', Date.now()); 
+    } else {
+        // --- ESTO ENVÍA EL PEDIDO AL HISTORIAL AL FINALIZAR ---
+        cola[index].estado = 'finalizado';
+        cola[index].fechaFinalizado = new Date().toLocaleDateString();
+
+        // Guardamos en el historial general (Jefatura)
+        let historial = JSON.parse(localStorage.getItem('archivo-historial')) || [];
+        historial.push(cola[index]); 
+        localStorage.setItem('archivo-historial', JSON.stringify(historial));
+
+        registrarRealizado(cola[index].id);
+        
+        // Lo sacamos de la lista de camilleros e imágenes
+        cola.splice(index, 1);
+        localStorage.setItem('cola-pedidos', JSON.stringify(cola));
+    }
+    renderPedidos();
+}
+
+        function registrarRealizado(pedidoId) {
+            let realizados = JSON.parse(localStorage.getItem('realizados-' + camilleroNombre)) || [];
+            if(!realizados.find(r => r.id === pedidoId)) {
+                realizados.push({id: pedidoId, time: Date.now()});
+            }
+            localStorage.setItem('realizados-' + camilleroNombre, JSON.stringify(realizados));
+        }
+
+        function actualizarContador() {
+            const realizados = JSON.parse(localStorage.getItem('realizados-' + camilleroNombre)) || [];
+            const hoy = new Date().setHours(0,0,0,0);
+            const filtrados = realizados.filter(r => r.time >= hoy);
+            document.getElementById('count-done').innerText = filtrados.length;
+        }
+
+        setInterval(renderPedidos, 2000);
+        renderPedidos();
+    </script>
+</body>
+</html>
