@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Arribos - Imágenes H.Z.G.A</title>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #134e4a 100%);
+            --accent-teal: #2dd4bf;
+            --accent-blue: #38bdf8;
+            --glass-bg: rgba(255, 255, 255, 0.07);
+            --glass-border: rgba(255, 255, 255, 0.125);
+            --text-light: #f1f5f9;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-light);
+            margin: 0; padding: 20px;
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        .container { width: 100%; max-width: 600px; }
+
+        /* Notificación de Arribo */
+        #notification-badge {
+            position: fixed; top: -100px; left: 50%; transform: translateX(-50%);
+            background: var(--accent-blue); color: #0f172a; padding: 15px 30px;
+            border-radius: 0 0 20px 20px; font-weight: bold; z-index: 1000;
+            transition: top 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+            white-space: nowrap; border: 2px solid #fff;
+        }
+        #notification-badge.show { top: 0; }
+
+        .user-panel {
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 20px; padding: 20px; display: flex;
+            justify-content: space-between; align-items: center; margin-bottom: 20px;
+        }
+
+        .orders-container {
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 24px; padding: 20px; min-height: 400px;
+        }
+
+        .order-card {
+            background: rgba(255, 255, 255, 0.05); border: 2px solid var(--accent-blue);
+            border-radius: 18px; padding: 20px; margin-bottom: 15px; position: relative;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .status-tag {
+            position: absolute; top: 0; right: 0; background: var(--accent-blue);
+            color: #0f172a; padding: 5px 15px; font-size: 0.7rem; font-weight: bold;
+            border-bottom-left-radius: 15px;
+        }
+
+        .camillero-info {
+            background: rgba(45, 212, 191, 0.15);
+            padding: 10px; border-radius: 12px;
+            margin-top: 12px; border-left: 4px solid var(--accent-teal);
+        }
+
+        .btn-cert {
+            width: 100%; padding: 12px; border-radius: 10px; border: none;
+            background: var(--accent-blue); color: #0f172a; font-weight: bold;
+            cursor: pointer; margin-top: 15px; font-size: 0.85rem;
+        }
+
+        .empty-msg { text-align: center; margin-top: 150px; opacity: 0.5; font-style: italic; }
+
+        /* Modal */
+        .modal {
+            display: none; position: fixed; z-index: 5000; left: 0; top: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); justify-content: center; align-items: center; padding: 10px;
+        }
+        .recetario-digital {
+            width: 100%; max-width: 400px; background: white; color: #333; padding: 25px;
+            font-family: 'Times New Roman', serif;
+        }
+        .sello-medico { border: 2px solid #1a365d; padding: 5px; color: #1a365d; text-align: center; float: right; width: 150px; margin-top: 20px; }
+        .firma-img { width: 80px; mix-blend-mode: multiply; }
+    </style>
+</head>
+<body>
+
+    <div id="notification-badge">🔔 ¡PACIENTE EN CAMINO A IMÁGENES!</div>
+
+    <div id="modal-cert" class="modal">
+        <div class="recetario-digital">
+            <h2 style="text-align:center; border-bottom:2px solid #333; font-size:1.2rem; margin-bottom:10px;">H.Z.G.A Héroes de Malvinas</h2>
+            <span style="font-size:1.5rem; font-style:italic; font-weight:bold;">Rp./</span>
+            <p><strong>Paciente:</strong> <span id="r-paciente"></span></p>
+            <p><strong>DNI:</strong> <span id="r-dni"></span></p>
+            <div style="padding:10px; border-left:3px solid #333; margin:10px 0;">
+                <span id="r-pedido"></span>
+            </div>
+            <p style="font-size:0.7rem;">Fecha: <span id="r-fecha"></span> | <span id="r-hora"></span> hs</p>
+            
+            <div class="sello-medico">
+                <img id="r-firma" src="" class="firma-img">
+                <div id="r-medico-name" style="font-weight:bold; font-size:0.7rem;"></div>
+                <div style="font-size:0.6rem;">MATRÍCULA: <span id="r-mat"></span></div>
+            </div>
+            <button class="btn-cert" style="background:#64748b; color:white; margin-top:80px;" onclick="cerrarModal()">CERRAR</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="user-panel">
+            <div>
+                <h2 style="margin:0; color:var(--accent-teal); font-size:1.2rem;">SERVICIO DE IMÁGENES</h2>
+                <p style="margin:0; font-size:0.75rem; opacity:0.6;">H.Z.G.A Héroes de Malvinas</p>
+            </div>
+            <button id="btn-logout" style="background:none; border:1px solid #f87171; color:#f87171; padding:5px 10px; border-radius:8px; cursor:pointer;">Salir</button>
+        </div>
+
+        <div class="orders-container">
+            <div id="msg-vacio" class="empty-msg">Sin pacientes en camino actualmente...</div>
+            <div id="orders-list"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAAaOmAIQ6GorJsSQAiFg-mUpnZJR2ivd4",
+            authDomain: "appguardia-8d02b.firebaseapp.com",
+            databaseURL: "https://appguardia-8d02b-default-rtdb.firebaseio.com",
+            projectId: "appguardia-8d02b",
+            storageBucket: "appguardia-8d02b.firebasestorage.app",
+            messagingSenderId: "830140146359",
+            appId: "1:830140146359:web:dfbac10ec53d7ee76e2332"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+
+        let cantidadAnterior = 0;
+
+        // Seguridad
+        onAuthStateChanged(auth, (user) => {
+            if (!user) window.location.href = 'login.html';
+            else escucharPedidos();
+        });
+
+        function escucharPedidos() {
+            onValue(ref(db, 'pedidos'), (snapshot) => {
+                const data = snapshot.val();
+                const listado = document.getElementById('orders-list');
+                const msgVacio = document.getElementById('msg-vacio');
+                
+                if (!data) {
+                    listado.innerHTML = "";
+                    msgVacio.style.display = 'block';
+                    cantidadAnterior = 0;
+                    return;
+                }
+
+                // Filtrar solo pedidos para Imágenes que estén EN CURSO
+                const pedidosActivos = Object.values(data).filter(p => {
+                    const destino = (p.hacia || "").toUpperCase();
+                    const estudio = (p.estudio || "").toUpperCase();
+                    const esParaImagenes = destino.includes("RX") || destino.includes("TAC") || estudio.includes("RX") || estudio.includes("TAC");
+                    return esParaImagenes && p.estado === 'en-curso';
+                });
+
+                // Alerta si llega uno nuevo
+                if (pedidosActivos.length > cantidadAnterior) {
+                    const badge = document.getElementById('notification-badge');
+                    badge.classList.add('show');
+                    setTimeout(() => badge.classList.remove('show'), 5000);
+                }
+                cantidadAnterior = pedidosActivos.length;
+
+                if (pedidosActivos.length === 0) {
+                    listado.innerHTML = "";
+                    msgVacio.style.display = 'block';
+                    return;
+                }
+
+                msgVacio.style.display = 'none';
+                listado.innerHTML = "";
+
+                pedidosActivos.forEach(p => {
+                    const card = document.createElement('div');
+                    card.className = "order-card";
+                    card.innerHTML = `
+                        <div class="status-tag">EN TRASLADO</div>
+                        <h3 style="color:var(--accent-blue); margin:0 0 10px 0;">${p.estudio}</h3>
+                        <p style="margin:4px 0;"><strong>Paciente:</strong> ${p.paciente}</p>
+                        <p style="margin:4px 0;"><strong>Desde:</strong> ${p.desde}</p>
+                        <div class="camillero-info">
+                            <strong>Camillero:</strong> ${p.camilleroNom || 'Asignado'}
+                        </div>
+                        <button class="btn-cert" id="btn-cert-${p.timestamp}">VER CERTIFICADO</button>
+                    `;
+                    listado.appendChild(card);
+
+                    document.getElementById(`btn-cert-${p.timestamp}`).onclick = () => verCertificado(p);
+                });
+            });
+        }
+
+        function verCertificado(p) {
+            document.getElementById('r-paciente').innerText = p.paciente;
+            document.getElementById('r-dni').innerText = p.dni;
+            document.getElementById('r-pedido').innerText = p.estudio;
+            document.getElementById('r-fecha').innerText = p.fecha;
+            document.getElementById('r-hora').innerText = p.hora;
+            document.getElementById('r-medico-name').innerText = p.medico;
+            document.getElementById('r-mat').innerText = p.matricula;
+            document.getElementById('r-firma').src = p.firma;
+            document.getElementById('modal-cert').style.display = 'flex';
+        }
+
+        window.cerrarModal = () => document.getElementById('modal-cert').style.display = 'none';
+        document.getElementById('btn-logout').onclick = () => signOut(auth);
+    </script>
+</body>
+</html>
