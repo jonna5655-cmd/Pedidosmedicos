@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Arribos - Imágenes H.Z.G.A</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #134e4a 100%);
+            --accent-teal: #2dd4bf;
+            --accent-blue: #38bdf8;
+            --glass-bg: rgba(255, 255, 255, 0.07);
+            --glass-border: rgba(255, 255, 255, 0.125);
+            --text-light: #f1f5f9;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-light);
+            margin: 0; padding: 20px;
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        .container { width: 100%; max-width: 600px; }
+
+        #notification-badge {
+            position: fixed; top: -100px; left: 50%; transform: translateX(-50%);
+            background: var(--accent-blue); color: #0f172a; padding: 15px 30px;
+            border-radius: 0 0 20px 20px; font-weight: bold; z-index: 1000;
+            transition: top 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+            white-space: nowrap; border: 2px solid #fff;
+        }
+        #notification-badge.show { top: 0; }
+
+        .user-panel {
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 20px; padding: 20px; display: flex;
+            justify-content: space-between; align-items: center; margin-bottom: 20px;
+        }
+
+        .orders-container {
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 24px; padding: 20px; min-height: 400px;
+        }
+
+        .order-card {
+            background: rgba(255, 255, 255, 0.05); border: 2px solid var(--accent-blue);
+            border-radius: 18px; padding: 20px; margin-bottom: 15px; position: relative;
+        }
+
+        .status-tag {
+            position: absolute; top: 0; right: 0; background: var(--accent-blue);
+            color: #0f172a; padding: 5px 15px; font-size: 0.7rem; font-weight: bold;
+            border-bottom-left-radius: 15px;
+        }
+
+        .camillero-info {
+            background: rgba(45, 212, 191, 0.15);
+            padding: 10px; border-radius: 12px;
+            margin-top: 12px; border-left: 4px solid var(--accent-teal);
+        }
+
+        .btn-cert {
+            width: 100%; padding: 12px; border-radius: 10px; border: none;
+            background: var(--accent-blue); color: #0f172a; font-weight: bold;
+            cursor: pointer; margin-top: 15px; font-size: 0.85rem;
+        }
+
+        .empty-msg { text-align: center; margin-top: 150px; opacity: 0.5; font-style: italic; }
+
+        /* --- ESTILOS MODAL RECETARIO --- */
+        .modal {
+            display: none; position: fixed; z-index: 5000; left: 0; top: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); justify-content: center; align-items: center; padding: 10px; overflow-y: auto;
+        }
+        .recetario-wrapper { transform-origin: center top; transition: transform 0.3s ease; }
+        .recetario-digital {
+            width: 400px; background: white; color: #333; padding: 30px; border-radius: 2px;
+            font-family: 'Times New Roman', serif; box-shadow: 0 0 30px rgba(0,0,0,0.5); box-sizing: border-box;
+        }
+        .recetario-header { text-align: center; border-bottom: 2px solid #333; margin-bottom: 20px; padding-bottom: 10px; }
+        .recetario-body { min-height: 200px; line-height: 1.4; }
+        .rp-label { font-size: 1.8rem; font-style: italic; font-weight: bold; margin-bottom: 10px; display: block; }
+        .recetario-footer { margin-top: 30px; position: relative; height: 140px; }
+        .sello-medico {
+            position: absolute; right: 0; width: 180px; border: 2px solid #1a365d; padding: 5px;
+            border-radius: 5px; color: #1a365d; transform: rotate(-2deg); text-align: center; font-family: 'Courier New', monospace;
+        }
+        .firma-digital { width: 90px; height: auto; display: block; margin: 0 auto 5px; mix-blend-mode: multiply; }
+    </style>
+</head>
+<body>
+
+    <div id="notification-badge">🔔 ¡PACIENTE EN CAMINO A IMÁGENES!</div>
+
+    <div id="modal-recetario" class="modal">
+        <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+            <div id="recetario-wrapper" class="recetario-wrapper">
+                <div id="recetario-captura" class="recetario-digital">
+                    <div class="recetario-header">
+                        <h2 style="margin:0; font-size: 1.4rem;">H.Z.G.A Héroes de Malvinas</h2>
+                        <p style="margin:2px 0; font-size: 0.65rem; font-weight: bold; letter-spacing: 1px;">SISTEMA DE GESTIÓN HOSPITALARIA</p>
+                    </div>
+                    <div class="recetario-body">
+                        <span class="rp-label">Rp./</span>
+                        <p><strong>Paciente:</strong> <span id="r-paciente"></span></p>
+                        <p><strong>DNI:</strong> <span id="r-dni"></span></p>
+                        <div style="margin: 20px 0; font-size: 1.1rem; border-left: 3px solid #333; padding-left: 12px; min-height: 80px;">
+                            <span id="r-pedido"></span>
+                        </div>
+                        <p style="font-size: 0.7rem; margin-top: 30px; opacity: 0.8;">
+                            Fecha: <span id="r-fecha"></span> | Hora: <span id="r-hora"></span> hs
+                        </p>
+                    </div>
+                    <div class="recetario-footer">
+                        <div class="sello-medico">
+                            <img id="r-firma" src="" class="firma-digital">
+                            <div id="r-medico-name" style="font-weight: bold; border-top: 1px solid #1a365d; margin-top: 5px; padding-top: 3px; font-size: 0.75rem;"></div>
+                            <div style="font-size: 0.65rem;">MATRÍCULA: <span id="r-mat"></span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-cert" style="width: 200px; background: #f87171; color: white; margin-top: 20px;" onclick="cerrarModal()">CERRAR</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="user-panel">
+            <div>
+                <h2 style="margin:0; color:var(--accent-teal); font-size:1.2rem;">SERVICIO DE IMÁGENES</h2>
+                <p style="margin:0; font-size:0.75rem; opacity:0.6;">H.Z.G.A Héroes de Malvinas</p>
+            </div>
+            <button onclick="location.href='login.html'" style="background:none; border:1px solid #f87171; color:#f87171; padding:5px 10px; border-radius:8px; cursor:pointer;">Salir</button>
+        </div>
+
+        <div class="orders-container">
+            <div id="msg-vacio" class="empty-msg">Esperando arribo de pacientes...</div>
+            <div id="orders-list"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURACIÓN FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAAaOmAIQ6GorJsSQAiFg-mUpnZJR2ivd4",
+            authDomain: "appguardia-8d02b.firebaseapp.com",
+            databaseURL: "https://appguardia-8d02b-default-rtdb.firebaseio.com",
+            projectId: "appguardia-8d02b",
+            storageBucket: "appguardia-8d02b.firebasestorage.app",
+            messagingSenderId: "830140146359",
+            appId: "1:830140146359:web:dfbac10ec53d7ee76e2332"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let ultimoEstadoJSON = "";
+
+        // --- ESCUCHA EN TIEMPO REAL ---
+        function initMonitor() {
+            db.ref('pedidos').on('value', (snapshot) => {
+                const data = snapshot.val();
+                const cola = data ? Object.values(data) : [];
+                checkPedidos(cola);
+            });
+        }
+
+        function checkPedidos(cola) {
+            const paraImagenes = cola.filter(p => {
+                const hacia = (p.hacia || "").toUpperCase().trim();
+                const estudio = (p.estudio || "").toUpperCase().trim();
+                const esImágenes = (hacia === "RX" || hacia === "TAC" || estudio.includes("RX") || estudio.includes("TAC"));
+                // Solo mostrar los que están siendo trasladados actualmente
+                return esImágenes && p.estado === 'en-curso';
+            });
+
+            const estadoActualJSON = JSON.stringify(paraImagenes);
+
+            if (estadoActualJSON === ultimoEstadoJSON) return;
+
+            // Si hay más pedidos que antes, mostrar notificación
+            if (paraImagenes.length > JSON.parse(ultimoEstadoJSON || "[]").length) {
+                const badge = document.getElementById('notification-badge');
+                badge.classList.add('show');
+                setTimeout(() => badge.classList.remove('show'), 5000);
+            }
+
+            ultimoEstadoJSON = estadoActualJSON;
+            const listado = document.getElementById('orders-list');
+            const msgVacio = document.getElementById('msg-vacio');
+
+            if (paraImagenes.length === 0) {
+                listado.innerHTML = "";
+                msgVacio.style.display = 'block';
+                return;
+            }
+
+            msgVacio.style.display = 'none';
+            listado.innerHTML = ""; 
+
+            paraImagenes.forEach(p => {
+                const card = document.createElement('div');
+                card.className = "order-card";
+                
+                // Sanitizar string para el onclick
+                const pString = JSON.stringify(p).replace(/'/g, "&apos;");
+
+                card.innerHTML = `
+                    <div class="status-tag">EN TRASLADO</div>
+                    <h3 style="color:var(--accent-blue); margin:0 0 10px 0;">${p.estudio}</h3>
+                    
+                    <div style="font-size: 0.95rem; line-height: 1.5;">
+                        <p style="margin: 4px 0;"><strong>Paciente:</strong> ${p.paciente}</p>
+                        <p style="margin: 4px 0;"><strong>DNI:</strong> ${p.dni}</p>
+                        <p style="margin: 4px 0;"><strong>Viene de:</strong> ${p.desde}</p>
+                    </div>
+
+                    <div class="camillero-info">
+                        <p style="margin: 0; font-size: 0.85rem; color: var(--accent-teal);">
+                            <strong>Traslada:</strong><br>
+                            <span style="color: #fff; font-size: 1rem;">${p.camilleroAsignado || 'Camillero de turno'}</span>
+                        </p>
+                    </div>
+
+                    <div style="font-size: 0.75rem; opacity: 0.8; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; margin-top: 12px; color: var(--accent-blue);">
+                        Solicitó: Dr/a ${p.medico} <br>
+                        <strong>M.P.: ${p.matricula || '---'}</strong> • ${p.hora}hs
+                    </div>
+
+                    <button class="btn-cert" onclick='abrirCertificado(${pString})'>VER CERTIFICADO</button>
+                `;
+                listado.appendChild(card);
+            });
+        }
+
+        function abrirCertificado(p) {
+            document.getElementById('r-paciente').innerText = p.paciente;
+            document.getElementById('r-dni').innerText = p.dni;
+            document.getElementById('r-pedido').innerText = p.estudio;
+            document.getElementById('r-fecha').innerText = p.fecha || new Date().toLocaleDateString();
+            document.getElementById('r-hora').innerText = p.hora;
+            document.getElementById('r-medico-name').innerText = "Dr/a. " + p.medico;
+            document.getElementById('r-mat').innerText = p.matricula || "---";
+            document.getElementById('r-firma').src = p.firma || "";
+
+            document.getElementById('modal-recetario').style.display = 'flex';
+            const escala = Math.min(1, (window.innerWidth - 20) / 400);
+            document.getElementById('recetario-wrapper').style.transform = `scale(${escala})`;
+        }
+
+        function cerrarModal() {
+            document.getElementById('modal-recetario').style.display = 'none';
+        }
+
+        // Iniciar el monitor de Firebase
+        initMonitor();
+    </script>
+</body>
+</html>
