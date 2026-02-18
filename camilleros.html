@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Panel de Camilleros - H.Z.G.A</title>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #134e4a 100%);
+            --accent-teal: #2dd4bf;
+            --accent-orange: #fb923c;
+            --glass-bg: rgba(255, 255, 255, 0.07);
+            --glass-border: rgba(255, 255, 255, 0.125);
+            --text-light: #f1f5f9;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-light);
+            margin: 0; padding: 15px;
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        .container { width: 100%; max-width: 500px; }
+
+        .user-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px; padding: 15px;
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;
+        }
+
+        .user-data h3 { margin: 0; font-size: 1rem; color: var(--accent-teal); }
+        .user-data p { margin: 0; font-size: 0.8rem; opacity: 0.7; }
+
+        .done-today-box {
+            background: rgba(45, 212, 191, 0.1);
+            border: 1px solid var(--accent-teal);
+            border-radius: 15px; padding: 10px;
+            margin-bottom: 15px; text-align: center;
+        }
+
+        .orders-container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px; padding: 15px; min-height: 200px;
+        }
+
+        .order-card {
+            background: #fff; color: #334155;
+            border-radius: 12px; padding: 15px;
+            margin-bottom: 15px; position: relative;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border-left: 8px solid var(--accent-teal);
+        }
+        .order-card.en-curso { border-left-color: var(--accent-orange); }
+        .order-card.bloqueado { opacity: 0.6; pointer-events: none; filter: grayscale(1); }
+
+        .order-card h4 { margin: 0; color: #0f172a; font-size: 0.95rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
+        .patient-row { margin: 8px 0; font-size: 0.85rem; }
+        .estudio-box { background: #f1f5f9; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 0.8rem; margin: 5px 0; color: #1e293b; }
+        
+        .badge { font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; background: #e2e8f0; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
+
+        .btn-action {
+            width: 100%; padding: 12px; border-radius: 8px;
+            border: none; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 0.85rem;
+        }
+        .btn-start { background: var(--accent-teal); color: #0f172a; }
+        .btn-finish { background: var(--accent-orange); color: white; }
+        .btn-cert { background: #64748b; color: white; margin-top: 5px; }
+
+        .empty-msg { text-align: center; opacity: 0.6; padding: 40px 0; font-style: italic; font-size: 0.9rem; }
+
+        /* --- ESTILOS MODAL RECETARIO --- */
+        .modal {
+            display: none; position: fixed; z-index: 5000; left: 0; top: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); justify-content: center; align-items: center; padding: 10px;
+        }
+        .recetario-digital {
+            width: 90%; max-width: 400px; background: white; color: #333; padding: 25px; border-radius: 2px;
+            font-family: 'Times New Roman', serif; box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        }
+        .recetario-header { text-align: center; border-bottom: 2px solid #333; margin-bottom: 15px; }
+        .rp-label { font-size: 1.5rem; font-style: italic; font-weight: bold; }
+        .sello-medico { border: 2px solid #1a365d; padding: 5px; border-radius: 5px; color: #1a365d; text-align: center; margin-top: 20px; float: right; width: 150px; }
+        .firma-digital { width: 80px; display: block; margin: 0 auto; mix-blend-mode: multiply; }
+    </style>
+</head>
+<body>
+
+    <div id="modal-recetario" class="modal">
+        <div class="recetario-digital">
+            <div class="recetario-header">
+                <h2 style="margin:0; font-size: 1.2rem;">H.Z.G.A Héroes de Malvinas</h2>
+                <p style="margin:2px 0; font-size: 0.6rem;">SISTEMA DE GESTIÓN HOSPITALARIA</p>
+            </div>
+            <div class="recetario-body">
+                <span class="rp-label">Rp./</span>
+                <p><strong>Paciente:</strong> <span id="r-paciente"></span></p>
+                <p><strong>DNI:</strong> <span id="r-dni"></span></p>
+                <div style="margin: 15px 0; padding-left: 10px; border-left: 3px solid #333;">
+                    <span id="r-pedido"></span>
+                </div>
+                <p style="font-size: 0.7rem; opacity: 0.8;">Fecha: <span id="r-fecha"></span> | <span id="r-hora"></span> hs</p>
+            </div>
+            <div class="sello-medico">
+                <img id="r-firma" src="" class="firma-digital">
+                <div id="r-medico-name" style="font-weight: bold; font-size: 0.7rem;"></div>
+                <div style="font-size: 0.6rem;">MATRÍCULA: <span id="r-mat"></span></div>
+            </div>
+            <button class="btn-action" style="background: #64748b; color:white; margin-top: 100px;" onclick="cerrarModal()">CERRAR</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="user-panel">
+            <div class="user-data">
+                <h3 id="display-name">Cargando...</h3>
+                <p id="display-shift">Cargando...</p>
+            </div>
+            <button style="color:#f87171; background:none; border:none; cursor:pointer;" id="btn-logout">Salir</button>
+        </div>
+
+        <div class="done-today-box">
+            <span style="font-size: 0.75rem; opacity: 0.8;">Mis servicios finalizados hoy</span>
+            <div id="count-done" style="font-size: 1.5rem; font-weight: bold; color: var(--accent-teal);">0</div>
+        </div>
+
+        <div class="orders-container">
+            <h3 style="font-size: 0.9rem; margin-top: 0; color: var(--accent-teal);">📋 Pedidos Activos</h3>
+            <div id="orders-list">
+                <div class="empty-msg">Sincronizando con el hospital...</div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getDatabase, ref, onValue, update, remove, set, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        // CONFIGURACIÓN ACTUALIZADA
+        const firebaseConfig = {
+            apiKey: "AIzaSyDT4a5y51fPb6Lj-0lzGaAheMSAEX6YqpU",
+            authDomain: "webmedica-5732f.firebaseapp.com",
+            databaseURL: "https://webmedica-5732f-default-rtdb.firebaseio.com",
+            projectId: "webmedica-5732f",
+            storageBucket: "webmedica-5732f.firebasestorage.app",
+            messagingSenderId: "514093360939",
+            appId: "1:514093360939:web:7af0618dcd2a74a226876e"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+
+        let camilleroNombre = "";
+
+        // --- SEGURIDAD ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const snapshot = await get(ref(db, 'usuarios/' + user.uid));
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    camilleroNombre = data.nombre;
+                    document.getElementById('display-name').innerText = data.nombre;
+                    document.getElementById('display-shift').innerText = "Turno: " + (data.turno || "No asignado");
+                    escucharPedidos();
+                    actualizarContador();
+                }
+            } else {
+                window.location.href = 'login.html';
+            }
+        });
+
+        function escucharPedidos() {
+            onValue(ref(db, 'pedidos'), (snapshot) => {
+                const data = snapshot.val();
+                const listado = document.getElementById('orders-list');
+                listado.innerHTML = "";
+
+                if (!data) {
+                    listado.innerHTML = '<div class="empty-msg">No hay pedidos pendientes.</div>';
+                    return;
+                }
+
+                Object.keys(data).forEach(id => {
+
+            const p = data[id];
+
+            const miTurnoElemento = document.getElementById('display-shift').innerText;
+            const filtroMiTurno = miTurnoElemento.replace('Turno: ', '').trim().toLowerCase();
+            
+            if (!p.turno || !filtroMiTurno.includes(p.turno.toLowerCase())) return;
+
+            const esMio = p.camilleroAsignado === camilleroNombre;
+            const ocupadoPorOtro = p.estado === 'en-curso' && !esMio;
+
+            const card = document.createElement('div');
+            card.className = `order-card ${p.estado === 'en-curso' ? 'en-curso' : ''} ${ocupadoPorOtro ? 'bloqueado' : ''}`;
+                    
+                    card.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; align-items:start;">
+                            <h4>${p.paciente}</h4>
+                            <span class="badge ${p.o2 && p.o2.includes('Si') ? 'badge-red' : ''}">${p.o2 && p.o2.includes('Si') ? 'OXÍGENO' : 'SIN O2'}</span>
+                        </div>
+                        <div class="patient-row"><strong>DNI:</strong> ${p.dni} | <strong>${p.transporte}</strong></div>
+                        <div class="estudio-box">${p.estudio || "Traslado General"}</div>
+                        <div style="font-size:0.7rem; opacity:0.8;">
+                            <strong>Desde:</strong> ${p.desde} ➔ <strong>Hacia:</strong> ${p.hacia}<br>
+                            <small>Solicitó: ${p.medico} (${p.hora}hs)</small>
+                        </div>
+                        ${ocupadoPorOtro ? 
+                            `<div style="color:#b91c1c; font-size:0.7rem; margin-top:10px; font-weight:bold; text-align:center;">TOMADO POR: ${p.camilleroNom || 'Otro'}</div>` : 
+                            `<div>
+                                <button class="btn-action ${p.estado === 'pendiente' ? 'btn-start' : 'btn-finish'}" id="btn-${id}">
+                                    ${p.estado === 'pendiente' ? 'ACEPTAR' : 'FINALIZAR'}
+                                </button>
+                                <button class="btn-action btn-cert" id="cert-${id}">VER CERTIFICADO</button>
+                            </div>`
+                        }
+                    `;
+                    listado.appendChild(card);
+
+                    // Eventos de botones
+                    if (!ocupadoPorOtro) {
+                        document.getElementById(`btn-${id}`).onclick = () => gestionar(id, p);
+                        document.getElementById(`cert-${id}`).onclick = () => abrirCertificado(p);
+                    }
+                });
+            });
+        }
+
+        async function gestionar(id, p) {
+    const pedidoRef = ref(db, 'pedidos/' + id);
+    if (p.estado === 'pendiente') {
+        try {
+            await update(pedidoRef, {
+                estado: 'en-curso',
+                camilleroAsignado: camilleroNombre,
+                camilleroNom: camilleroNombre
+            });
+        } catch (e) { alert("Error al aceptar: " + e.message); }
+    } else {
+        // --- FINALIZAR ---
+        try {
+            const historialRef = ref(db, 'historial_pedidos/' + id);
+            
+            // Aseguramos que el objeto tenga todos los campos antes de enviarlo
+            const datosFinales = {
+                ...p,
+                estado: 'finalizado',
+                fechaFinalizado: new Date().toLocaleDateString(),
+                horaFinalizado: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                camilleroFinalizo: camilleroNombre
+            };
+
+            // 1. Guardamos en historial
+            await set(historialRef, datosFinales);
+            
+            // 2. Borramos de pedidos activos
+            await remove(pedidoRef);
+            
+            // 3. Actualizamos contador local
+            let realizados = JSON.parse(localStorage.getItem('realizados_' + camilleroNombre)) || [];
+            realizados.push({id, fecha: Date.now()});
+            localStorage.setItem('realizados_' + camilleroNombre, JSON.stringify(realizados));
+            actualizarContador();
+            
+            alert("Servicio finalizado y registrado en historial.");
+        } catch (e) { 
+            console.error(e);
+            alert("Error de permisos: No se pudo registrar en el historial. Revisa las reglas de Firebase."); 
+        }
+    }
+}
+
+
+        window.abrirCertificado = (p) => {
+            document.getElementById('r-paciente').innerText = p.paciente;
+            document.getElementById('r-dni').innerText = p.dni;
+            document.getElementById('r-pedido').innerText = p.estudio;
+            document.getElementById('r-fecha').innerText = p.fecha;
+            document.getElementById('r-hora').innerText = p.hora;
+            document.getElementById('r-medico-name').innerText = p.medico;
+            document.getElementById('r-mat').innerText = p.matricula;
+            document.getElementById('r-firma').src = p.firma;
+            document.getElementById('modal-recetario').style.display = 'flex';
+        };
+
+        window.cerrarModal = () => { document.getElementById('modal-recetario').style.display = 'none'; };
+
+        function actualizarContador() {
+            const realizados = JSON.parse(localStorage.getItem('realizados_' + camilleroNombre)) || [];
+            const hoy = new Date().setHours(0,0,0,0);
+            const totalHoy = realizados.filter(r => r.fecha >= hoy).length;
+            document.getElementById('count-done').innerText = totalHoy;
+        }
+
+        document.getElementById('btn-logout').onclick = () => signOut(auth);
+    </script>
+</body>
+</html>
